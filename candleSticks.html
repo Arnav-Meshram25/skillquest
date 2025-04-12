@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Enhanced Candlestick Chart with RSI</title>
+  <title>Enhanced Candlestick Chart with Drawing & RSI</title>
   <style>
     body {
       background-color: #111;
@@ -34,7 +34,7 @@
   </style>
 </head>
 <body>
-  <h1>Candlestick Chart with RSI, Drawing & Signals</h1>
+  <h1>Candlestick Chart with Drawing & RSI</h1>
 
   <div class="toolbar">
     <button id="toggleDraw">Enable Drawing</button>
@@ -78,29 +78,6 @@
         candles.push({ open, close, high, low });
         price = close;
       }
-    }
-
-    function getRSI(candles, period = 14) {
-      const closes = candles.map(c => c.close);
-      let gains = [], losses = [], rsi = [];
-
-      for (let i = 1; i < closes.length; i++) {
-        let diff = closes[i] - closes[i - 1];
-        gains.push(diff > 0 ? diff : 0);
-        losses.push(diff < 0 ? -diff : 0);
-      }
-
-      for (let i = 0; i < closes.length; i++) {
-        if (i < period) {
-          rsi.push(null);
-        } else {
-          let avgGain = gains.slice(i - period, i).reduce((a, b) => a + b) / period;
-          let avgLoss = losses.slice(i - period, i).reduce((a, b) => a + b) / period;
-          let rs = avgGain / (avgLoss || 1);
-          rsi.push(100 - (100 / (1 + rs)));
-        }
-      }
-      return rsi;
     }
 
     function drawAxes(minY, maxY) {
@@ -149,23 +126,6 @@
 
         ctx.fillStyle = c.close > c.open ? "#0f0" : "#f00";
         ctx.fillRect(x, Math.min(openY, closeY), candleWidth, Math.abs(openY - closeY));
-      }
-
-      const rsi = getRSI(candles);
-      for (let i = 0; i < rsi.length; i++) {
-        if (rsi[i] !== null && (rsi[i] < 30 || rsi[i] > 70)) {
-          const x = i * (candleWidth + candleGap) + 50 + candleWidth / 2;
-          const y = chartHeight - ((candles[i].close - minY) / (maxY - minY)) * chartHeight + topPadding;
-
-          ctx.strokeStyle = 'blue';
-          ctx.beginPath();
-          ctx.arc(x, y, 6, 0, Math.PI * 2);
-          ctx.stroke();
-
-          ctx.fillStyle = rsi[i] < 30 ? "lime" : "red";
-          ctx.font = "12px Arial";
-          ctx.fillText(`${rsi[i].toFixed(1)} ${rsi[i] < 30 ? 'Buy' : 'Sell'}`, x - 20, y - 10);
-        }
       }
 
       lines.forEach(line => {
@@ -246,3 +206,4 @@
   </script>
 </body>
 </html>
+

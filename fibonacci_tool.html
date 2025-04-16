@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fibonacci Tool</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background-color: black;
+      color: white;
+      font-family: 'Cursive', sans-serif;
+    }
+
+    #chart-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #chart {
+      width: 100%;
+      height: 100%;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 10;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      pointer-events: none;
+    }
+
+    .btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: white;
+      color: black;
+      padding: 10px 16px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Cursive', sans-serif;
+      cursor: pointer;
+      z-index: 15;
+      margin-left: 10px;
+    }
+
+    #start-btn {
+      right: 160px;
+    }
+  </style>
+</head>
+<body>
+  <div id="chart-container">
+    <div id="chart"></div>
+    <canvas id="overlay"></canvas>
+    <button id="start-btn" class="btn">Start Fibonacci Tool</button>
+    <button id="clear-btn" class="btn">Clear Fibonacci</button>
+  </div>
+
+  <script>
+    function generateStockData(days) {
+      let x = [], open = [], high = [], low = [], close = [];
+      let basePrice = 100;
+
+      for (let i = 0; i < days; i++) {
+        let date = new Date();
+        date.setDate(date.getDate() - (days - i));
+        x.push(date.toISOString().split('T')[0]);
+
+        let o = basePrice + (Math.random() - 0.5) * 3;
+        let c = o + (Math.random() - 0.5) * 5;
+        let h = Math.max(o, c) + Math.random() * 2;
+        let l = Math.min(o, c) - Math.random() * 2;
+
+        open.push(o.toFixed(2));
+        high.push(h.toFixed(2));
+        low.push(l.toFixed(2));
+        close.push(c.toFixed(2));
+
+        basePrice = parseFloat(c);
+      }
+
+      return { x, open, high, low, close };
+    }
+
+    const sampleData = generateStockData(90);
+
+    Plotly.newPlot('chart', [{
+      x: sampleData.x,
+      open: sampleData.open,
+      high: sampleData.high,
+      low: sampleData.low,
+      close: sampleData.close,
+      type: 'candlestick',
+      increasing: { line: { color: 'lime' } },
+      decreasing: { line: { color: 'red' } }
+    }], {
+      plot_bgcolor: 'black',
+      paper_bgcolor: 'black',
+      xaxis: { rangeslider: { visible: false }, color: 'white' },
+      yaxis: { color: 'white' }
+    });
+
+    const canvas = document.getElementById("overlay");
+    const ctx = canvas.getContext("2d");
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    let isDrawing = false;
+    let isFibonacciMode = false;
+    let startX = 0, startY = 0;
+    let drawnLevels = [];
+
+    function drawSavedLevels() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawnLevels.forEach(box => {
+        // Draw box
+        ctx.beginPath();
+        ctx.rect(box.x1, box.y1, box.x2 - box.x1, box.y2 - box.y1);
+        ctx.strokeStyle = "white";
+        ctx.stroke();
+
+        // Draw levels within box
+        box.levels.forEach(level => {
+          const y = box.y2 - (box.y2 - box.y1) * level.ratio;
+          ctx.beginPath();
+          ctx.moveTo(box.x1, y);
+          ctx.lineTo(box.x2, y);
+          ctx.strokeStyle = "#00ffff";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.fillStyle = "white";
+          ctx.font = "14px Cursive";
+          ctx.fillText(level.label, box.x1 + 4, y - 4);
+        });
+      });
+    }
+
+    canvas.addEventListener("mousedown", (e) => {
+      if (!isFibonacciMode) return;
+
+      isDrawing = true;
+      const rect = canvas.getBoundingClientRect();
+      startX = e.clientX - rect.left;
+      startY = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (!isDrawing || !isFibonacciMode) return;
+      const rect = canvas.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      const currentY = e.clientY - rect.top;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawSavedLevels();
+
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+    });
+
+    canvas.addEventListener("mouseup", (e) => {
+      if (!isDrawing || !isFibonacciMode) return;
+      isDrawing = false;
+      isFibonacciMode = false;
+      canvas.style.pointerEvents = "none";
+
+      const rect = canvas.getBoundingClientRect();
+      const endX = e.clientX - rect.left;
+      const endY = e.clientY - rect.top;
+
+      const x1 = Math.min(startX, endX);
+      const x2 = Math.max(startX, endX);
+      const y1 = Math.min(startY, endY);
+      const y2 = Math.max(startY, endY);
+
+      const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1].map(r => ({
+        ratio: r,
+        label: `${(r * 100).toFixed(1)}%`
+      }));
+
+      drawnLevels.push({ x1, x2, y1, y2, levels });
+      drawSavedLevels();
+    });
+
+    document.getElementById("start-btn").addEventListener("click", () => {
+      isFibonacciMode = true;
+      canvas.style.pointerEvents = "auto";
+    });
+
+    document.getElementById("clear-btn").addEventListener("click", () => {
+      drawnLevels = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+  </script>
+</body>
+</html>
